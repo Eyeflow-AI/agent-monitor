@@ -1,0 +1,13 @@
+apiVersion: 1
+providers:
+- name: 'Prometheus'
+  orgId: 1
+  folder: ''
+  type: file
+  disableDeletion: true
+  editable: false
+  options:
+    path: /etc/grafana/provisioning/dashboards
+dashboards:
+- default_home_dashboard_path: /etc/grafana/provisioning/dashboards/station-monitoring.json
+

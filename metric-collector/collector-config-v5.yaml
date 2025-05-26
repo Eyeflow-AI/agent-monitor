@@ -1,0 +1,64 @@
+stationID:
+  customerName: 
+  stationName: 
+  StationIP: 
+  - 192.168.0.1
+metricMethod: push
+prometheusPush:
+  pushUrl: http://metrics.eyeflow.ai:9091
+  pushUrl2: null
+tls:
+  pushUrl_TLS: false
+  pushUrl_TLS_Username: monitor
+  pushUrl_TLS_Password: ZXllZmxvdw==
+  pushUrl2_TLS: false
+  pushUrl2_TLS_Username: null
+  pushUrl2_TLS_Password: null
+agentPath:
+  logPath: /opt/eyeflow/monitor
+  scriptPath: /opt/eyeflow/monitor
+metricDetails: full
+debugMode: false
+restart:
+  camRestart: false
+  sysAgentRestart: true
+  suAccess: sa.KT9zrGYeg2
+update:
+  autoUpdate: false
+  autoRestart: false
+  updateUrl: 
+captureMetrics:
+  captureInterval: 10s
+  apiGet: false
+  backup: false
+  cameraApi: false
+  disk: true
+  docker: true
+  gpu: true
+  ipPing: true
+  monitoredOsProcess: true
+  network: true
+  remoteOpenStatus: false
+  selfIP: true
+  sensor: true
+  server: true
+  sysAgent: false
+  topOsProcess: true
+apiUrl: null
+backup:
+  folder: /home/ubuntu/temp
+  filePrefix: null
+  fileSuffix: .yml
+  frequency: 1d
+camUrl:
+- http://192.168.200.21:8000
+dockerList:
+- all
+dockerExceptList:
+- none
+ipPingList:
+- 192.168.55.101
+monitoredOsProcessList:
+- sys_agent
+remoteOpenList: null
+topOsProcessCount: 4

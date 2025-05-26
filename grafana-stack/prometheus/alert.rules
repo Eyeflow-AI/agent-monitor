@@ -1,0 +1,114 @@
+groups:
+- name: Eyeflow_Station
+  rules:
+  - alert: Disk Usage Limit Warning
+    expr: count(disk_utilization > 95) > 0
+    for: 5m
+    labels:
+      severity: Free up disk space or call support
+    annotations:
+      summary: "Disk Volume {{ $labels.volume }} utilization over 95%"
+      description: "{{ $labels.volume }} on station {{ $labels.customer }} has reached disk capacity over 95% for more than 5 minutes."
+  - alert: High Memory Utilization
+    expr: (1 - ((station_mem_free + station_mem_cached) / station_mem_total)) > 0.95 
+    for: 5m
+    labels:
+      severity: call support
+    annotations:
+      summary: "Memory utilization on Station {{ $labels.staton }} above 95%"
+      description: "{{ $labels.customer }} Sattion has reported high memory utilization for more than 5 minutes"
+  - alert: High CPU Utilization
+    expr: (100 - station_use_idle) > 95 
+    for: 5m
+    labels:
+      severity: call support
+    annotations:
+      summary: "CPU utilization on Station {{ $labels.customer }} above 95%"
+      description: "Sattion {{ $labels.customer }} has reported high CPU utilization for more than 5 minutes"
+  - alert: High System CPU Temperature
+    expr: count(station_cpu_temp > 90) > 0
+    for: 2m
+    labels:
+      severity: cool down station
+    annotations:
+      summary: "System's CPU temperature above 90°C"
+      description: "Station {{ $labels.customer }} has reported high CPU temperature for more than 2 minutes"
+
+
+
+  - alert: High GPU Temperature
+    expr: (gpu_temperature) > 90 
+    for: 5m
+    labels:
+      severity: call support
+    annotations:
+      summary: "GPU temperature on Station {{ $labels.customer }} above 90°C"
+      description: "Sattion {{ $labels.customer }} has reported high GPU temperature for more than 5 minutes"
+  - alert: Missing Metric Collector Heartbeat
+    expr: time() - station_heartbeat > 120 
+    for: 5m
+    labels:
+      severity: restart metric collector service
+    annotations:
+      summary: "Metric Collector Heartbeat failing on Station {{ $labels.cistomer }}"
+      description: "Sattion {{ $labels.customer }} not sending metric collector heartbeat for more than 5 minutes"
+  - alert: Missing (External) Monitored Services Heartbeat
+    expr: time() - service_heartbeat > 60
+    for: 5m
+    labels:
+      severity: verify external services
+    annotations:
+      summary: "External Service {{ $labels.service }} heartbeat failing on Station {{ $labels.customer }}"
+      description: "External Service {{ $labels.service }} heartbeat in Station {{ $labels.customer }} not sending heartbeat for more than 5 minutes"
+  - alert: Monitored Processes Not Running
+    expr: count(process_missing > 0) > 0
+    for: 2m
+    labels:
+      severity: verify and start processses
+    annotations:
+      summary: "Process failing on Station {{ $labels.host }}"
+      description: "Station {{ $labels.customer }} has monitored processes not running for more than 2 minutes"
+  - alert: External Service Reporting ERROR
+    expr: service_status > 0
+    for: 2m
+    labels:
+      severity: verify external services
+    annotations:
+      summary: "Service {{ $labels.service }} on Station {{ $labels.host }} has reported an ERROR"
+      description: "Service {{ $labels.service }} in Station {{ $labels.customer }} has reported an error for more than 2 minutes"
+  - alert: Station Static IP Mismatch
+    expr: selfip_exec_time < 1
+    for: 2m
+    labels:
+      severity: verify NIC IP configuration
+    annotations:
+      summary: "Station {{ $labels.customer }} has reported IP Address Mismatch"
+      description: "Station {{ $labels.customer }} has reported change in IP Address configuration for more than 2 minutes"
+  - alert: Network Connectivity Error
+    expr: ping_loss_pct > 50
+    for: 2m
+    labels:
+      severity: verify NIC Connectivity
+    annotations:
+      summary: "Station {{ $labels.customer }} has reported IP Connectivity Error"
+      description: "Station {{ $labels.customer }} has reported error in IP connectivity ({{ $labels.ipaddr }}) for more than 2 minutes"
+  - alert: Legacy System Communication Error
+    expr: error_status > 0
+    for: 2m
+    labels:
+      severity: validate connectivity to legacy system
+    annotations:
+      summary: "Station {{ $labels.customer }} has reported Communication Errors to Legacy Systems"
+      description: "Station {{ $labels.customer }} has reported Communication Errors to Legacy Systems"
+  - alert: Camera Connection Error
+    expr: round(abs((time() - camera_heartbeat) - 30) / 180) > 1 
+    for: 5m
+    labels:
+      severity: check camera connection
+    annotations:
+      summary: "Camera not responding on Station {{ $labels.customer }}"
+      description: "Camera {{ $labels.camera }} on Station {{ $labels.station }} not connected for more than 5 minutes"
+
+
+
+

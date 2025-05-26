@@ -1,0 +1,20 @@
+route:
+  receiver: 'ms-teams'
+  group_by: ['alertname']
+  group_interval: 1m
+  repeat_interval: 30m
+  group_wait: 10s
+
+  routes:
+    - receiver: 'ms-teams'
+      group_by: ['alertname']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 1h
+
+receivers:
+  - name: 'ms-teams'
+    webhook_configs:
+    - url: "http://alertapi:2000/alertmanager"
+      send_resolved: true
+
