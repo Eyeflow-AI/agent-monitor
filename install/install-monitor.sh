@@ -93,7 +93,7 @@ fi
 echo "----- Cloning Edge repo and setting rights -----" | sudo tee -a $LOGFILE
 cd /opt/eyeflow/monitor/install
 rm -rf /opt/eyeflow/monitor/install/agent
-git clone https://github.com/snsergio/agent.git
+git clone https://github.com/Eyeflow-AI/agent-monitor
 if id "eyeflow" >/dev/null 2>&1; then
     chown -R eyeflow:users /opt/eyeflow/monitor
 else
