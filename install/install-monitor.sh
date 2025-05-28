@@ -1,6 +1,6 @@
 #!/bin/bash
 # LOG file at /opt/eyeflow/install/monitor-install-<date time>.log
-# wget --no-cookies --no-cache https://raw.githubusercontent.com/snsergio/agent/main/install/install-monitor.sh
+# wget --no-cookies --no-cache https://github.com/Eyeflow-AI/agent-monitor/tree/main/install/install-monitor.sh
 # chmod +x install-monitor.sh
 # sudo ./install-monitor.sh
 ##### Install Monitor v5.11
@@ -93,7 +93,7 @@ fi
 echo "----- Cloning Edge repo and setting rights -----" | sudo tee -a $LOGFILE
 cd /opt/eyeflow/monitor/install
 rm -rf /opt/eyeflow/monitor/install/agent
-git clone https://github.com/Eyeflow-AI/agent-monitor
+git clone https://github.com/Eyeflow-AI/agent-monitor/
 if id "eyeflow" >/dev/null 2>&1; then
     chown -R eyeflow:users /opt/eyeflow/monitor
 else
@@ -105,13 +105,13 @@ chmod g+rwxs /opt/eyeflow/monitor
 chmod 775 /opt/eyeflow/monitor
 echo "----- Deleting unnecessary files -----" | sudo tee -a $LOGFILE
 if [ $(uname -i) != "aarch64" ]; then
-  rm -rf /opt/eyeflow/monitor/install/agent/jetson
+  rm -rf /opt/eyeflow/monitor/install/agent-monitor/jetson
 fi
 rm -rf /opt/eyeflow/monitor/install/agent/install
 rm -rf /opt/eyeflow/monitor/install/agent/README*
 rm -rf /opt/eyeflow/monitor/install/agent/grafana-stack
 echo "----- Adding files -----" | sudo tee -a $LOGFILE
-rsync -zvrh /opt/eyeflow/monitor/install/agent/* /opt/eyeflow/monitor
+rsync -zvrh /opt/eyeflow/monitor/install/agent-monitor/* /opt/eyeflow/monitor
 mv /opt/eyeflow/monitor/metric-collector/* /opt/eyeflow/monitor
 rm -rf /opt/eyeflow/monitor/metric-collector
 rm -rf /opt/eyeflow/monitor/prometheus-proxy
@@ -140,8 +140,8 @@ unzip "promtail-linux-amd64.zip"
 sudo chmod a+x "promtail-linux-amd64"
 sudo rm -R promtail-linux-amd64.zip
 echo "##### Cloning Promtail Files" | sudo tee -a $LOGFILE
-wget https://raw.githubusercontent.com/snsergio/agent/main/promtail/promtail-config.yml
-wget https://raw.githubusercontent.com/snsergio/agent/main/promtail/promtail.service
+wget https://github.com/Eyeflow-AI/agent-monitor/tree/main/promtail/promtail-config.yml
+wget https://github.com/Eyeflow-AI/agent-monitor/tree/main/promtail/promtail.service
 echo "##### Copying promtail service to systemd" | sudo tee -a $LOGFILE
 cp /opt/eyeflow/monitor/promtail/promtail.service /etc/systemd/system/. 
 systemctl enable promtail.service 
