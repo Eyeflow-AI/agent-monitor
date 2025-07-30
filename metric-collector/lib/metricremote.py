@@ -9,60 +9,77 @@ from lib import common as c
 #######################################################################################################################
 c.versionDict["metricremote"] = versao
 #######################################################################################################################
-class remote_open_exec: 
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import logging
+import time
+import socket
+from lib import common as c
+
+versao = "metricremote-v5.11-SOCKET"
+c.versionDict["metricremote"] = versao
+
+class remote_open_exec:
     # Execute Remote check for Open Port metric collector
+    @staticmethod
     def collect_remote_open(getRemoteOpen, remoteOpenList):
-        remoteopenout, remoteOpenMetrics, remoteOpenExecError = "", {}, 0
-        if not c.logFirstRun: logging.info(f"{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(time.time()))}-metricapiget version: {versao}")
-        if getRemoteOpen:
-            if remoteOpenList != None:
-                if (len(remoteOpenList) > 0):
-                    remoteOpenCount = 0
-                    for remoteOpenItem in remoteOpenList:
-                        remoteTemp = {}
-                        if ":" in remoteOpenItem:
-                            ipUrl = remoteOpenItem.split(":")[0]
-                            portUrl = remoteOpenItem.split(":")[1]
-                            try: remoteopenout = c.exec_cmd(["nc", "-zvw5", str(ipUrl), str(portUrl)], c.debugMode)["output"]
-                            except:
-                                if not c.logFirstRun: logging.error(f"{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(time.time()))}-remote_open_exec.collect_remote_open: Get IP:PORT data error")
-                                remoteOpenExecError = 1
-                        else:
-                            try: remoteopenout = c.exec_cmd(["nc", "-zvw5", str(remoteOpenItem)], c.debugMode)["output"]
-                            except:
-                                if not c.logFirstRun: logging.error(f"{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(time.time()))}-remote_open_exec.collect_remote_open: Get URL data error")
-                                remoteOpenExecError = 1
-                        if remoteopenout != "":
-                            remoteTemp["remoteOpenUrl"] = remoteOpenItem
-                            remoteTemp.update(remote_open_exec.remote_open_metrics(remoteopenout))
-                        else:
-                            remoteTemp["remoteOpenUrl"] = remoteOpenItem
-                            remoteTemp["remoteOpenStatus"] = 0
-                            remoteTemp["remoteOpenResponse"] = "not_found"
-                        remoteOpenMetrics[remoteOpenCount] = remoteTemp
-                        remoteOpenCount += 1
+        remoteOpenMetrics, remoteOpenExecError = {}, 0
+        if not c.logFirstRun:
+            logging.info(f"{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())}-metricapiget version: {versao}")
+
+        if getRemoteOpen and remoteOpenList and len(remoteOpenList) > 0:
+            for remoteOpenCount, remoteOpenItem in enumerate(remoteOpenList):
+                remoteTemp = {"remoteOpenUrl": remoteOpenItem}
+                ipUrl, portUrl = None, None
+
+                try:
+                    # Parse IP e porta
+                    if ":" in remoteOpenItem:
+                        ipUrl, portUrl = remoteOpenItem.split(":")
+                        portUrl = int(portUrl)
+                    else:
+                        ipUrl = remoteOpenItem
+                        portUrl = 80  # porta padrão
+
+                    # Testa conexão via socket
+                    status, response = remote_open_exec.check_port(ipUrl, portUrl)
+                    remoteTemp["remoteOpenStatus"] = status
+                    remoteTemp["remoteOpenResponse"] = response
+
+                except Exception as e:
+                    remoteTemp["remoteOpenStatus"] = 0
+                    remoteTemp["remoteOpenResponse"] = f"error: {e}"
+                    remoteOpenExecError = 1
+                    if not c.logFirstRun:
+                        logging.error(f"{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())}-remote_open_exec.collect_remote_open: error {e}")
+
+                remoteOpenMetrics[remoteOpenCount] = remoteTemp
+
         remoteOpenMetrics["remoteOpenExecError"] = remoteOpenExecError
         return remoteOpenMetrics
-        #----------------------------------------------------------------------------------------------------------------------
-    # Prepare API GET metrics data
+
+    # Função substituta ao exec_cmd com netcat
+    @staticmethod
+    def check_port(ip, port, timeout=5):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(timeout)
+                result = sock.connect_ex((ip, port))  # 0 = sucesso
+                if result == 0:
+                    return 1, f"Connection to {ip}:{port} succeeded"
+                else:
+                    return 0, f"Connection to {ip}:{port} failed (code {result})"
+        except socket.gaierror:
+            return 0, f"DNS resolution failed for {ip}"
+        except Exception as e:
+            return 0, f"Exception occurred: {e}"
+
+    # Esta função está aqui apenas por compatibilidade, mas não é mais usada na versão socket
+    @staticmethod
     def remote_open_metrics(remoteopenout):
-        resposta = {}
-        try: remoteOpenData = remoteopenout.splitlines()
-        except: remoteOpenData = 0
-        else:
-            if len(remoteOpenData) > 0:
-                resposta = {
-                    "remoteOpenStatus": 0,
-                    "remoteOpenResponse": ""
-                }
-                for item in remoteOpenData:
-                    if "refused" in item: resposta["apiGetStatus"] = 1
-                    if item[:4] == "HTTP":
-                        apiGetStatus = item.split()
-                        if (apiGetStatus[-1].strip().isnumeric()): resposta["remoteOpenStatus"] = int(apiGetStatus[-1].strip())
-                        elif (apiGetStatus[-2].strip().isnumeric()): resposta["remoteOpenStatus"] = int(apiGetStatus[-2].strip())
-                        else: resposta["remoteOpenStatus"] = 0
-                resposta["remoteOpenResponse"] = remoteOpenData[-1]
-            else: resposta = 0
-        return resposta
+        return {
+            "remoteOpenStatus": 0,
+            "remoteOpenResponse": remoteopenout
+        }
         #----------------------------------------------------------------------------------------------------------------------
