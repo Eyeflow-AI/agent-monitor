@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 ###################################################################################################
-versao = "metricgpu-v5.15-PUB-2846410-240225"
+versao = "metricgpu-v5.16-PUB-2846410-240226"
 ###################################################################################################
 
 import logging
@@ -15,17 +15,37 @@ c.versionDict["metricgpu"] = versao
 class gpu_exec:
 
     ################################################################################################
-    # Função segura para acessar campos do XML
+    # Função segura para leitura de valores com limpeza de unidade
     ################################################################################################
     @staticmethod
-    def safe_get(func, default=None, strip_unit=None):
+    def to_float(val, unit=None):
+        """
+        Converte string para float removendo unidade (W, C, %, MB)
+        Aceita:
+            "95.29 W"
+            " 95.29 "
+            "95.29C"
+            "N/A"
+            ""
+        Se falhar, retorna 0.0
+        """
         try:
-            v = func()
-            if strip_unit and isinstance(v, str):
-                v = v.replace(strip_unit, "").strip()
-            return v
+            if val is None:
+                return 0.0
+            if not isinstance(val, str):
+                return float(val)
+
+            clean = val.strip()
+            if unit:
+                clean = clean.replace(unit, "")
+            clean = clean.replace("C", "").replace("W", "").replace("%", "").strip()
+
+            if clean in ["", "N/A", "NaN"]:
+                return 0.0
+
+            return float(clean)
         except:
-            return default
+            return 0.0
 
     ################################################################################################
     # Coleta principal
@@ -63,18 +83,20 @@ class gpu_exec:
         gpuXML = ""
         gpuExecError = 0
 
+        # ==========================================================================================
+        # Captura XML principal
+        # ==========================================================================================
         if getGpu:
             if not c.logFirstRun:
                 logging.info(f"{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())}-metricgpu version: {versao}")
 
-            # Tenta obter XML
             try:
                 out = c.exec_cmd(["nvidia-smi", "-x", "-q"], c.debugMode, "xml")
                 gpuXML = out["output"]["nvidia_smi_log"]
             except Exception as e:
                 gpuExecError = 1
                 if not c.logFirstRun:
-                    logging.error(f"{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())}-SMI XML error: {e}")
+                    logging.error(f"[metricgpu] Erro XML nvidia-smi: {e}")
 
         if gpuXML != "":
             gpuMetrics = gpu_exec.gpu_metrics(gpuXML, gpuExecError, c.logFirstRun)
@@ -83,7 +105,7 @@ class gpu_exec:
         return gpuMetrics
 
     ################################################################################################
-    # Processa XML
+    # Parser XML → Dicionário final de métricas
     ################################################################################################
     def gpu_metrics(data, gpuExecError, logFirstRun):
 
@@ -116,58 +138,78 @@ class gpu_exec:
             "powerMax": 0.0
         }
 
-        # Driver / CUDA
-        resposta["driver"] = gpu_exec.safe_get(lambda: data["driver_version"]) or ""
-        resposta["cuda"]   = gpu_exec.safe_get(lambda: data["cuda_version"]) or ""
+        # ------------------------------------
+        # DRIVER / CUDA
+        # ------------------------------------
+        resposta["driver"] = data.get("driver_version", "")
+        resposta["cuda"]   = data.get("cuda_version", "")
 
-        # Node GPU
         gpu = data.get("gpu", {})
 
-        resposta["card"] = gpu_exec.safe_get(lambda: gpu["@id"]) or ""
-        resposta["gpuName"] = gpu_exec.safe_get(lambda: gpu["product_name"]) or ""
-        resposta["gpuBrand"] = gpu_exec.safe_get(lambda: gpu["product_brand"]) or ""
-        resposta["gpuArch"] = gpu_exec.safe_get(lambda: gpu["product_architecture"]) or ""
-        resposta["gpuDisplayMode"] = gpu_exec.safe_get(lambda: gpu["display_mode"]) or ""
-        resposta["gpuDisplayActive"] = gpu_exec.safe_get(lambda: gpu["display_active"]) or ""
-        resposta["multiGpu"] = gpu_exec.safe_get(lambda: gpu["multigpu_board"]) or ""
-        resposta["performanceState"] = gpu_exec.safe_get(lambda: gpu["performance_state"]) or ""
-        resposta["virtMode"] = gpu_exec.safe_get(
-            lambda: gpu["gpu_virtualization_mode"]["virtualization_mode"]) or ""
+        # ------------------------------------
+        # INFOS PRINCIPAIS
+        # ------------------------------------
+        resposta["card"] = gpu.get("@id", "")
+        resposta["gpuName"] = gpu.get("product_name", "")
+        resposta["gpuBrand"] = gpu.get("product_brand", "")
+        resposta["gpuArch"] = gpu.get("product_architecture", "")
+        resposta["gpuDisplayMode"] = gpu.get("display_mode", "")
+        resposta["gpuDisplayActive"] = gpu.get("display_active", "")
+        resposta["multiGpu"] = gpu.get("multigpu_board", "")
+        resposta["performanceState"] = gpu.get("performance_state", "")
 
-        # Fan
-        resposta["fanSpeed"] = float(gpu_exec.safe_get(lambda: gpu["fan_speed"].split("%")[0]) or 0)
+        # Virtualização
+        try:
+            resposta["virtMode"] = gpu["gpu_virtualization_mode"]["virtualization_mode"]
+        except:
+            resposta["virtMode"] = ""
 
-        # Memória FB
+        # ------------------------------------
+        # FAN SPEED
+        # ------------------------------------
+        resposta["fanSpeed"] = gpu_exec.to_float(gpu.get("fan_speed", "0%"))
+
+        # ------------------------------------
+        # MEMÓRIA FB
+        # ------------------------------------
         fb = gpu.get("fb_memory_usage", {})
-        resposta["memReserved"] = int(gpu_exec.safe_get(lambda: fb["reserved"].split()[0]) or 0)
-        resposta["memUsed"]     = int(gpu_exec.safe_get(lambda: fb["used"].split()[0]) or 0)
-        resposta["memFree"]     = int(gpu_exec.safe_get(lambda: fb["free"].split()[0]) or 0)
-        resposta["memTotal"]    = int(gpu_exec.safe_get(lambda: fb["total"].split()[0]) or 0)
+        resposta["memReserved"] = gpu_exec.to_float(fb.get("reserved", "0MB"))
+        resposta["memUsed"]     = gpu_exec.to_float(fb.get("used", "0MB"))
+        resposta["memFree"]     = gpu_exec.to_float(fb.get("free", "0MB"))
+        resposta["memTotal"]    = gpu_exec.to_float(fb.get("total", "0MB"))
 
-        # Temperatura
+        # ------------------------------------
+        # TEMPERATURAS
+        # ------------------------------------
         t = gpu.get("temperature", {})
-        resposta["temperature"] = float(gpu_exec.safe_get(lambda: t["gpu_temp"], "0C", "C") or 0)
-        resposta["tempMax"]     = float(gpu_exec.safe_get(lambda: t["gpu_temp_max_threshold"], "0C", "C") or 0)
-        resposta["tempSlowDn"]  = float(gpu_exec.safe_get(lambda: t["gpu_temp_slow_threshold"], "0C", "C") or 0)
+
+        resposta["temperature"] = gpu_exec.to_float(t.get("gpu_temp", "0C"))
+        resposta["tempMax"]     = gpu_exec.to_float(t.get("gpu_temp_max_threshold", "0C"))
+        resposta["tempSlowDn"]  = gpu_exec.to_float(t.get("gpu_temp_slow_threshold", "0C"))
 
         target = gpu.get("supported_gpu_target_temp", {})
-        resposta["tempTarget"] = float(gpu_exec.safe_get(lambda: target["gpu_target_temp_max"], "0C", "C") or 0)
+        resposta["tempTarget"]  = gpu_exec.to_float(target.get("gpu_target_temp_max", "0C"))
 
-        # Power
+        # ------------------------------------
+        # UTILIZAÇÃO
+        # ------------------------------------
+        u = gpu.get("utilization", {})
+        resposta["gpuUtil"] = gpu_exec.to_float(u.get("gpu_util", "0%"))
+        resposta["memUtil"] = gpu_exec.to_float(u.get("memory_util", "0%"))
+
+        # ------------------------------------
+        # POWER (PRINCIPAL)
+        # ------------------------------------
         p = gpu.get("power_readings", {})
 
-        ###########################################################################
-        # POWER DRAW – Fallback automático
-        ###########################################################################
-        power_val = gpu_exec.safe_get(lambda: p["power_draw"], "").replace("W", "").strip() if "power_draw" in p else ""
+        # XML → float
+        resposta["powerDraw"] = gpu_exec.to_float(p.get("power_draw", "0W"))
+        resposta["powerLimit"] = gpu_exec.to_float(p.get("power_limit", "0W"))
+        resposta["powerMax"] = gpu_exec.to_float(p.get("max_power_limit", "0W"))
 
-        if power_val not in ["", "N/A", "NaN"]:
-            try:
-                resposta["powerDraw"] = float(power_val)
-            except:
-                resposta["powerDraw"] = 0.0
-
-        # Se ainda 0 → fallback REAL
+        # ------------------------------------
+        # FALLBACK SE inner XML FALHAR EM powerDraw
+        # ------------------------------------
         if resposta["powerDraw"] == 0.0:
             try:
                 out = c.exec_cmd(
@@ -177,26 +219,8 @@ class gpu_exec:
                 resposta["powerDraw"] = float(out.strip().splitlines()[0])
             except Exception as e:
                 if not logFirstRun:
-                    logging.error(f"Power Draw fallback error: {e}")
+                    logging.error(f"[metricgpu] Fallback powerDraw error: {e}")
                 resposta["powerDraw"] = 0.0
-
-        ###########################################################################
-        # POWER LIMIT & MAX LIMIT
-        ###########################################################################
-        try:
-            resposta["powerLimit"] = float(p["power_limit"].replace("W", "").strip())
-        except:
-            resposta["powerLimit"] = 0.0
-
-        try:
-            resposta["powerMax"] = float(p["max_power_limit"].replace("W", "").strip())
-        except:
-            resposta["powerMax"] = 0.0
-
-        # Utilização
-        u = gpu.get("utilization", {})
-        resposta["gpuUtil"] = float(gpu_exec.safe_get(lambda: u["gpu_util"].split("%")[0]) or 0)
-        resposta["memUtil"] = float(gpu_exec.safe_get(lambda: u["memory_util"].split("%")[0]) or 0)
 
         return resposta
 
