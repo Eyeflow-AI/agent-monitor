@@ -238,6 +238,67 @@ def get_ntp(configDict):
     return
 
 ###################################################################################################
-# MAIN
-###################################################################################################
+# Main 
 if __name__ == "__main__":
+    import time
+    from datetime import datetime
+    from lib import common as c
+    from lib import metricconfig as mc
+    from lib import pushtogateway as pg
+    from lib import versioncontrol as vc
+    c.versionDict["metric-collector"] = versao
+    configDict = mc.config_setup.get_config()
+    if configDict["getGpu"]:
+        if configDict["cpuArch"] == "x86_64":
+            configDict["getGpuNvidia"] = configDict["getGpu"]
+            configDict["getJetson"] = 0
+        elif configDict["cpuArch"] == "aarch64":
+            configDict["getGpuNvidia"] = 0
+            configDict["getJetson"] = configDict["getGpu"]
+    else:
+        configDict["getGpuNvidia"] = 0
+        configDict["getJetson"] = 0
+    logging.basicConfig(filename = c.logPath + c.logFileName, level=logging.DEBUG, force=True)
+    logging.info(f"{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(time.time()))}-Metric Method: {configDict['metricMethod']}")
+    logging.info(f"{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(time.time()))}-update config: {configDict['autoUpdate']}")
+    del mc
+    if configDict['metricMethod'] == "push":
+        vc.version_update.export_actual(configDict)
+        while True:
+            get_ntp(configDict)
+            metrics = get_metrics(configDict)
+            basic = pg.push_data(configDict, metrics)
+            basic.set_data()
+            basic.push_to_gateway()
+            basic.clean_prom()
+#            if updTime + 300 < datetime.timestamp(datetime.now()):
+#                if configDict["autoUpdate"]:
+#                    apiStatus = vc.version_update.export_actual(configDict)
+#                    if apiStatus != 200: logging.error(f"{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(time.time()))}-Main-Export Actual Error: {apiStatus}")
+#                    vc.version_update.check_outdated(configDict)
+#                updTime = datetime.timestamp(datetime.now())
+            if not c.logFirstRun: logging.info(f"{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(time.time()))}-version dictionary: {c.versionDict}")
+            c.logFirstRun = 1
+            time.sleep(configDict["captureInterval"])
+    else:
+        from prometheus_client import start_http_server
+        from lib import metricexporter as me
+        start_http_server(9089)
+        basic = me.exporter(configDict)
+        updTime = datetime.timestamp(datetime.now())
+        vc.version_update.export_actual(configDict)
+        while True:
+            get_ntp(configDict)
+            basic.metricDict = get_metrics(configDict)
+            me.exporter.clean_prom(basic)
+            me.exporter.set_data(basic)
+            if updTime + 300 < datetime.timestamp(datetime.now()):
+                if configDict["autoUpdate"]:
+                    apiStatus = vc.version_update.export_actual(configDict)
+                    if apiStatus != 200: logging.error(f"{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(time.time()))}-Main-Export Actual Error: {apiStatus}")
+                    vc.version_update.check_outdated(configDict)
+                updTime = datetime.timestamp(datetime.now())
+            if not c.logFirstRun: logging.info(f"{time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(time.time()))}-version dictionary: {c.versionDict}")
+            c.logFirstRun = 1
+            time.sleep(configDict["captureInterval"])
+#######################################################################################################################
